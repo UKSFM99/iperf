@@ -780,7 +780,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
                 break;
                 //sets fragmenting off if used
             case 'y':
-                fragment = 1;
+                fragment = 0;
                 break;
             case OPT_SCTP:
 #if defined(HAVE_SCTP)

@@ -348,7 +348,7 @@ iperf_udp_accept(struct iperf_test *test)
         i_errno = IESTREAMACCEPT;
         return -1;
     }
-    if(fragment == 1){
+    if(fragment == 0){
        {
             printf("About to set DNF bit\n");
             int val = IP_PMTUDISC_DO;
@@ -518,7 +518,7 @@ iperf_udp_connect(struct iperf_test *test)
             }
         }
     }
-    if(fragment == 1)
+    if(fragment == 0)
     {
        {
             printf("About to set DNF bit\n");

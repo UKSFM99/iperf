@@ -1,6 +1,12 @@
 iperf3:  A TCP, UDP, and SCTP network bandwidth measurement tool
 ================================================================
 
+
+## What I have added to the forked repo 
+* Ability to add -y which will disable packet fragmentation
+* Ability to specify packet size down to bytes (example -l 1234b)
+
+
 Summary
 -------
 
