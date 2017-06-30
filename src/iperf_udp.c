@@ -178,7 +178,6 @@ iperf_udp_send(struct iperf_stream *sp)
     int r;
     int       size = sp->settings->blksize;
     struct timeval before;
-
     gettimeofday(&before, 0);
 
     ++sp->packet_count;
@@ -349,7 +348,15 @@ iperf_udp_accept(struct iperf_test *test)
         i_errno = IESTREAMACCEPT;
         return -1;
     }
-
+    if(fragment == 1){
+       {
+            printf("About to set DNF bit\n");
+            int val = IP_PMTUDISC_DO;
+            if (setsockopt(s, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0) {
+                    warning("Unable to set socket DNF");
+                }
+            }
+        }
     if (connect(s, (struct sockaddr *) &sa_peer, len) < 0) {
         i_errno = IESTREAMACCEPT;
         return -1;
@@ -392,12 +399,12 @@ iperf_udp_accept(struct iperf_test *test)
     }
 #endif /* HAVE_SO_MAX_PACING_RATE */
     {
-	unsigned int rate = test->settings->rate / 8;
-	if (rate > 0) {
-	    if (test->debug) {
-		printf("Setting application pacing to %u\n", rate);
-	    }
-	}
+        unsigned int rate = test->settings->rate / 8;
+        if (rate > 0) {
+            if (test->debug) {
+                printf("Setting application pacing to %u\n", rate);
+            }
+        }
     }
 
     /*
@@ -504,12 +511,22 @@ iperf_udp_connect(struct iperf_test *test)
     }
 #endif /* HAVE_SO_MAX_PACING_RATE */
     {
-	unsigned int rate = test->settings->rate / 8;
-	if (rate > 0) {
-	    if (test->debug) {
-		printf("Setting application pacing to %u\n", rate);
-	    }
-	}
+        unsigned int rate = test->settings->rate / 8;
+        if (rate > 0) {
+            if (test->debug) {
+                printf("Setting application pacing to %u\n", rate);
+            }
+        }
+    }
+    if(fragment == 1)
+    {
+       {
+            printf("About to set DNF bit\n");
+            int val = IP_PMTUDISC_DO;
+            if (setsockopt(s, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0) {
+                    warning("Unable to set socket DNF");
+                }
+        }
     }
 
 #ifdef SO_RCVTIMEO

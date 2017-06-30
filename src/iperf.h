@@ -141,6 +141,8 @@ struct iperf_stream
     int       local_port;
     int       remote_port;
     int       socket;
+    /*dfrag - should the packet not be fragmented?*/
+    int       dfrag;
     int       id;
 	/* XXX: is settings just a pointer to the same struct in iperf_test? if not, 
 		should it be? */
@@ -226,6 +228,7 @@ struct iperf_test
     int       duration;                         /* total duration of test (-t flag) */
     char     *diskfile_name;			/* -F option */
     int       affinity, server_affinity;	/* -A option */
+    int       dfrag;
 #if defined(HAVE_CPUSET_SETAFFINITY)
     cpuset_t cpumask;
 #endif /* HAVE_CPUSET_SETAFFINITY */

@@ -169,7 +169,6 @@ run(struct iperf_test *test)
             usage();
             break;
     }
-
     iperf_catch_sigend(SIG_DFL);
     signal(SIGPIPE, SIG_DFL);
 

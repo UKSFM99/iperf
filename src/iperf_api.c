@@ -28,7 +28,6 @@
 #define __USE_GNU
 
 #include "iperf_config.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -633,6 +632,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         {"server", no_argument, NULL, 's'},
         {"client", required_argument, NULL, 'c'},
         {"udp", no_argument, NULL, 'u'},
+        {"dontfrag",no_argument,NULL,'y'},
         {"bitrate", required_argument, NULL, 'b'},
         {"bandwidth", required_argument, NULL, 'b'},
         {"time", required_argument, NULL, 't'},
@@ -704,8 +704,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 #if defined(HAVE_SSL)
     char *client_username = NULL, *client_rsa_public_key = NULL;
 #endif /* HAVE_SSL */
-
-    while ((flag = getopt_long(argc, argv, "p:f:i:D1VJvsc:ub:t:n:k:l:P:Rw:B:M:N46S:L:ZO:F:A:T:C:dI:hX:", longopts, NULL)) != -1) {
+    while ((flag = getopt_long(argc, argv, "p:f:i:D1VJvsc:uyb:t:n:k:l:P:Rw:B:M:N46S:L:ZO:F:A:T:C:dI:hX:", longopts, NULL)) != -1) {
         switch (flag) {
             case 'p':
                 test->server_port = atoi(optarg);
@@ -716,7 +715,9 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 		    return -1;
 		}
 		test->settings->unit_format = *optarg;
-		if (test->settings->unit_format == 'k' ||
+		if (test->settings->unit_format == 'b' ||
+            test->settings->unit_format == 'B' ||
+            test->settings->unit_format == 'k' ||
 		    test->settings->unit_format == 'K' ||
 		    test->settings->unit_format == 'm' ||
 		    test->settings->unit_format == 'M' ||
@@ -775,7 +776,11 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
                 break;
             case 'u':
                 set_protocol(test, Pudp);
-		client_flag = 1;
+		        client_flag = 1;
+                break;
+                //sets fragmenting off if used
+            case 'y':
+                fragment = 1;
                 break;
             case OPT_SCTP:
 #if defined(HAVE_SCTP)

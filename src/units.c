@@ -68,12 +68,13 @@
 extern    "C"
 {
 #endif
-
+	const double BYTE_UNIT = 1.0;
     const double KILO_UNIT = 1024.0;
     const double MEGA_UNIT = 1024.0 * 1024.0;
     const double GIGA_UNIT = 1024.0 * 1024.0 * 1024.0;
     const double TERA_UNIT = 1024.0 * 1024.0 * 1024.0 * 1024.0;
 
+    const double BYTE_RATE_UNIT = 1.0;
     const double KILO_RATE_UNIT = 1000.0;
     const double MEGA_RATE_UNIT = 1000.0 * 1000.0;
     const double GIGA_RATE_UNIT = 1000.0 * 1000.0 * 1000.0;
@@ -112,6 +113,9 @@ extern    "C"
 	case 'k': case 'K':
 	    n *= KILO_UNIT;
 	    break;
+	case 'b': case 'B':
+		n *= BYTE_UNIT; 
+		break;
 	default:
 	    break;
 	}
@@ -151,6 +155,9 @@ extern    "C"
 	case 'k': case 'K':
 	    n *= KILO_RATE_UNIT;
 	    break;
+	case 'b': case 'B':
+		n *=BYTE_RATE_UNIT; 
+		break;
 	default:
 	    break;
 	}
@@ -192,6 +199,11 @@ extern    "C"
 	case 'k': case 'K':
 	    n *= KILO_UNIT;
 	    break;
+	//bytes only
+	case 'b': case 'B':
+		n *=BYTE_UNIT; 
+		break;
+
 	default:
 	    break;
 	}

@@ -68,6 +68,7 @@
  * timeout_connect adapted from netcat, via OpenBSD and FreeBSD
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
  */
+int fragment=0;
 int
 timeout_connect(int s, const struct sockaddr *name, socklen_t namelen,
     int timeout)
