@@ -1,5 +1,5 @@
 /*
- * iperf, Copyright (c) 2014-2017, The Regents of the University of
+ * iperf, Copyright (c) 2014-2018, The Regents of the University of
  * California, through Lawrence Berkeley National Laboratory (subject
  * to receipt of any required approvals from the U.S. Dept. of
  * Energy).  All rights reserved.
@@ -72,12 +72,12 @@ struct iperf_stream;
 /* states */
 #define TEST_START 1
 #define TEST_RUNNING 2
-#define RESULT_REQUEST 3
+#define RESULT_REQUEST 3 /* not used */
 #define TEST_END 4
-#define STREAM_BEGIN 5
-#define STREAM_RUNNING 6
-#define STREAM_END 7
-#define ALL_STREAMS_END 8
+#define STREAM_BEGIN 5 /* not used */
+#define STREAM_RUNNING 6 /* not used */
+#define STREAM_END 7 /* not used */
+#define ALL_STREAMS_END 8 /* not used */
 #define PARAM_EXCHANGE 9
 #define CREATE_STREAMS 10
 #define SERVER_TERMINATE 11
@@ -265,7 +265,6 @@ int iperf_run_server(struct iperf_test *);
 int iperf_server_listen(struct iperf_test *);
 int iperf_accept(struct iperf_test *);
 int iperf_handle_message_server(struct iperf_test *);
-void iperf_test_reset(struct iperf_test *);
 int iperf_create_pidfile(struct iperf_test *);
 int iperf_delete_pidfile(struct iperf_test *);
 
@@ -307,7 +306,7 @@ enum {
     IEENDCONDITIONS = 16,   // Only one test end condition (-t, -n, -k) may be specified
     IELOGFILE = 17,	    // Can't open log file
     IENOSCTP = 18,	    // No SCTP support available
-    IEBIND = 19,			// Local port specified with no local bind option
+    IEBIND = 19,	    // UNUSED:  Local port specified with no local bind option
     IEUDPBLOCKSIZE = 20,    // Block size invalid
     IEBADTOS = 21,	    // Bad TOS value
     IESETCLIENTAUTH = 22,   // Bad configuration of client authentication

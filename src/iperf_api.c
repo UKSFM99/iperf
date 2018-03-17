@@ -1,5 +1,5 @@
 /*
- * iperf, Copyright (c) 2014-2017, The Regents of the University of
+ * iperf, Copyright (c) 2014-2018, The Regents of the University of
  * California, through Lawrence Berkeley National Laboratory (subject
  * to receipt of any required approvals from the U.S. Dept. of
  * Energy).  All rights reserved.
@@ -24,13 +24,17 @@
  * This code is distributed under a BSD style license, see the LICENSE file
  * for complete information.
  */
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #define __USE_GNU
 
 #include "iperf_config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <getopt.h>
 #include <errno.h>
 #include <signal.h>
@@ -42,7 +46,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <pthread.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -60,6 +63,10 @@
 #include <sys/cpuset.h>
 #endif /* HAVE_CPUSET_SETAFFINITY */
 
+#if defined(HAVE_SETPROCESSAFFINITYMASK)
+#include <Windows.h>
+#endif /* HAVE_SETPROCESSAFFINITYMASK */
+
 #include "net.h"
 #include "iperf.h"
 #include "iperf_api.h"
@@ -72,7 +79,6 @@
 
 #include "cjson.h"
 #include "units.h"
-#include "tcp_window_size.h"
 #include "iperf_util.h"
 #include "iperf_locale.h"
 #include "version.h"
@@ -104,7 +110,7 @@ usage()
 void
 usage_long(FILE *f)
 {
-    fprintf(f, usage_longstr, UDP_RATE / (1024*1024), DURATION, DEFAULT_TCP_BLKSIZE / 1024, DEFAULT_UDP_BLKSIZE / 1024);
+    fprintf(f, usage_longstr, UDP_RATE / (1024*1024), DURATION, DEFAULT_TCP_BLKSIZE / 1024, DEFAULT_UDP_BLKSIZE);
 }
 
 
@@ -621,6 +627,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 {
     static struct option longopts[] =
     {
+        {"nofrag",no_argument,NULL,'y'},
         {"port", required_argument, NULL, 'p'},
         {"format", required_argument, NULL, 'f'},
         {"interval", required_argument, NULL, 'i'},
@@ -632,7 +639,6 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         {"server", no_argument, NULL, 's'},
         {"client", required_argument, NULL, 'c'},
         {"udp", no_argument, NULL, 'u'},
-        {"dontfrag",no_argument,NULL,'y'},
         {"bitrate", required_argument, NULL, 'b'},
         {"bandwidth", required_argument, NULL, 'b'},
         {"time", required_argument, NULL, 't'},
@@ -704,6 +710,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 #if defined(HAVE_SSL)
     char *client_username = NULL, *client_rsa_public_key = NULL;
 #endif /* HAVE_SSL */
+
     while ((flag = getopt_long(argc, argv, "p:f:i:D1VJvsc:uyb:t:n:k:l:P:Rw:B:M:N46S:L:ZO:F:A:T:C:dI:hX:", longopts, NULL)) != -1) {
         switch (flag) {
             case 'p':
@@ -717,7 +724,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 		test->settings->unit_format = *optarg;
 		if (test->settings->unit_format == 'b' ||
             test->settings->unit_format == 'B' ||
-            test->settings->unit_format == 'k' ||
+		    test->settings->unit_format == 'k' ||
 		    test->settings->unit_format == 'K' ||
 		    test->settings->unit_format == 'm' ||
 		    test->settings->unit_format == 'M' ||
@@ -778,7 +785,6 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
                 set_protocol(test, Pudp);
 		        client_flag = 1;
                 break;
-                //sets fragmenting off if used
             case 'y':
                 fragment = 0;
                 break;
@@ -1115,10 +1121,6 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         return -1;
     }
 #endif //HAVE_SSL
-    if (!test->bind_address && test->bind_port) {
-        i_errno = IEBIND;
-        return -1;
-    }
     if (blksize == 0) {
 	if (test->protocol->id == Pudp)
 	    blksize = 0;	/* try to dynamically determine from MSS */
@@ -1331,7 +1333,6 @@ iperf_create_send_timers(struct iperf_test * test)
         sp->green_light = 1;
 	if (test->settings->rate != 0) {
 	    cd.p = sp;
-	    /* (Repeat every millisecond - arbitrary value to provide smooth pacing.) */
 	    sp->send_timer = tmr_create((struct timeval*) 0, send_timer_proc, cd, test->settings->pacing_timer, 1);
 	    if (sp->send_timer == NULL) {
 		i_errno = IEINITTEST;
@@ -1473,8 +1474,7 @@ send_parameters(struct iperf_test *test)
 	cJSON_AddNumberToObject(j, "omit", test->omit);
 	if (test->server_affinity != -1)
 	    cJSON_AddNumberToObject(j, "server_affinity", test->server_affinity);
-	if (test->duration)
-	    cJSON_AddNumberToObject(j, "time", test->duration);
+	cJSON_AddNumberToObject(j, "time", test->duration);
 	if (test->settings->bytes)
 	    cJSON_AddNumberToObject(j, "num", test->settings->bytes);
 	if (test->settings->blocks)
@@ -2311,6 +2311,11 @@ iperf_reset_test(struct iperf_test *test)
     test->settings->rate = 0;
     test->settings->burst = 0;
     test->settings->mss = 0;
+    test->settings->tos = 0;
+    if (test->settings->authtoken) {
+	free(test->settings->authtoken);
+	test->settings->authtoken = NULL;
+    }
     memset(test->cookie, 0, COOKIE_SIZE);
     test->multisend = 10;	/* arbitrary */
     test->udp_counters_64bit = 0;
@@ -2484,7 +2489,7 @@ iperf_print_intermediate(struct iperf_test *test)
 	    double interval_len = timeval_diff(&irp->interval_start_time,
 					       &irp->interval_end_time);
 	    if (test->debug) {
-		printf("interval_len %f bytes_transferred %lu\n", interval_len, irp->bytes_transferred);
+		printf("interval_len %f bytes_transferred %" PRIu64 "\n", interval_len, irp->bytes_transferred);
 	    }
 
 	    /*
@@ -2876,7 +2881,7 @@ iperf_print_results(struct iperf_test *test)
 		else
 		    if (test->role == 's' && !test->sender) {
 		        if (test->verbose)
-			    iperf_printf(test, report_sender_not_available_format, sp->socket);
+			    iperf_printf(test, report_sender_not_available_summary_format, "SUM");
 		    }
 		    else {
 		      iperf_printf(test, report_sum_bw_retrans_format, start_time, sender_time, ubuf, nbuf, total_retransmits, report_sender);
@@ -2888,7 +2893,7 @@ iperf_print_results(struct iperf_test *test)
 		else
 		    if (test->role == 's' && !test->sender) {
 		        if (test->verbose) 
-			    iperf_printf(test, report_sender_not_available_format, sp->socket);
+			    iperf_printf(test, report_sender_not_available_summary_format, "SUM");
 		    }
 		    else {
 		        iperf_printf(test, report_sum_bw_format, start_time, sender_time, ubuf, nbuf, report_sender);
@@ -3440,6 +3445,36 @@ iperf_create_pidfile(struct iperf_test *test)
     if (test->pidfile) {
 	int fd;
 	char buf[8];
+
+	/* See if the file already exists and we can read it. */
+	fd = open(test->pidfile, O_RDONLY, 0);
+	if (fd >= 0) {
+	    if (read(fd, buf, sizeof(buf) - 1) >= 0) {
+
+		/* We read some bytes, see if they correspond to a valid PID */
+		pid_t pid;
+		pid = atoi(buf);
+		if (pid > 0) {
+
+		    /* See if the process exists. */
+		    if (kill(pid, 0) == 0) {
+			/*
+			 * Make sure not to try to delete existing PID file by
+			 * scribbling over the pathname we'd use to refer to it.
+			 * Then exit with an error.
+			 */
+			free(test->pidfile);
+			test->pidfile = NULL;
+			iperf_errexit(test, "Another instance of iperf3 appears to be running");
+		    }
+		}
+	    }
+	}
+	
+	/*
+	 * File didn't exist, we couldn't read it, or it didn't correspond to 
+	 * a running process.  Try to create it. 
+	 */
 	fd = open(test->pidfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
 	if (fd < 0) {
 	    return -1;
@@ -3515,7 +3550,7 @@ iperf_json_finish(struct iperf_test *test)
 }
 
 
-/* CPU affinity stuff - Linux and FreeBSD only. */
+/* CPU affinity stuff - Linux, FreeBSD, and Windows only. */
 
 int
 iperf_setaffinity(struct iperf_test *test, int affinity)
@@ -3548,10 +3583,19 @@ iperf_setaffinity(struct iperf_test *test, int affinity)
         return -1;
     }
     return 0;
-#else /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY */
+#elif defined(HAVE_SETPROCESSAFFINITYMASK)
+	HANDLE process = GetCurrentProcess();
+	DWORD_PTR processAffinityMask = 1 << affinity;
+
+	if (SetProcessAffinityMask(process, processAffinityMask) == 0) {
+		i_errno = IEAFFINITY;
+		return -1;
+	}
+	return 0;
+#else /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor HAVE_SETPROCESSAFFINITYMASK */
     i_errno = IEAFFINITY;
     return -1;
-#endif /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY */
+#endif /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor HAVE_SETPROCESSAFFINITYMASK */
 }
 
 int
@@ -3576,10 +3620,21 @@ iperf_clearaffinity(struct iperf_test *test)
         return -1;
     }
     return 0;
-#else /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY */
+#elif defined(HAVE_SETPROCESSAFFINITYMASK)
+	HANDLE process = GetCurrentProcess();
+	DWORD_PTR processAffinityMask;
+	DWORD_PTR lpSystemAffinityMask;
+
+	if (GetProcessAffinityMask(process, &processAffinityMask, &lpSystemAffinityMask) == 0
+			|| SetProcessAffinityMask(process, lpSystemAffinityMask) == 0) {
+		i_errno = IEAFFINITY;
+		return -1;
+	}
+	return 0;
+#else /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor HAVE_SETPROCESSAFFINITYMASK */
     i_errno = IEAFFINITY;
     return -1;
-#endif /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY */
+#endif /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor HAVE_SETPROCESSAFFINITYMASK */
 }
 
 int

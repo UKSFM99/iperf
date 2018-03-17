@@ -1,4 +1,4 @@
-.TH IPERF3 1 "June 2017" ESnet "User Manuals"
+.TH IPERF3 1 "March 2018" ESnet "User Manuals"
 .SH NAME
 iperf3 \- perform network throughput tests
 .SH SYNOPSIS
@@ -76,7 +76,7 @@ There will be at least one line of output per measurement interval (by
 default a measurement interval lasts for one second, but this can be
 changed by the -i option).
 Each line of output includes (at least) the time since the start of
-the test, amount of data transfered during the interval, and the
+the test, amount of data transferred during the interval, and the
 average bitrate over that interval.
 Note that the values for each measurement interval are taken from the
 point of view of the endpoint process emitting that output (in other
@@ -127,7 +127,7 @@ The length, attributes, and in some cases contents of the received
 file may not match those of the original file.
 .TP
 .BR -A ", " --affinity " \fIn/n,m\fR"
-Set the CPU affinity, if possible (Linux and FreeBSD only).
+Set the CPU affinity, if possible (Linux, FreeBSD, and Windows only).
 On both the client and server you can set the local affinity by using
 the \fIn\fR form of this argument (where \fIn\fR is a CPU number).
 In addition, on the client side you can override the server's
@@ -138,7 +138,9 @@ to a single CPU (as opposed to a set containing potentialy multiple
 CPUs).
 .TP
 .BR -B ", " --bind " \fIhost\fR"
-bind to a specific interface. If the host has multiple interfaces, it will use the first interface by default.
+bind to the specific interface associated with address \fIhost\fR.
+If the host has multiple interfaces, it will use the first interface
+by default.
 .TP
 .BR -V ", " --verbose " "
 give more detailed output 
@@ -294,10 +296,12 @@ only use IPv4
 only use IPv6
 .TP
 .BR -S ", " --tos " \fIn\fR"
-set the IP type of service
+set the IP type of service. The usual prefixes for octal and hex can be used,
+i.e. 52, 064 and 0x34 all specify the same value.
 .TP
 .BR "--dscp " \fIdscp\fR
-set the IP DSCP bits.  Both numeric and symbolic values are accepted.
+set the IP DSCP bits.  Both numeric and symbolic values are accepted. Numeric
+values can be specified in decimal, octal and hex (see --tos above).
 .TP
 .BR -L ", " --flowlabel " \fIn\fR"
 set the IPv6 flow label (currently only supported on Linux)

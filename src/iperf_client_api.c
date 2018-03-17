@@ -1,5 +1,5 @@
 /*
- * iperf, Copyright (c) 2014-2017, The Regents of the University of
+ * iperf, Copyright (c) 2014-2018, The Regents of the University of
  * California, through Lawrence Berkeley National Laboratory (subject
  * to receipt of any required approvals from the U.S. Dept. of
  * Energy).  All rights reserved.
@@ -54,6 +54,9 @@ int
 iperf_create_streams(struct iperf_test *test)
 {
     int i, s;
+#if defined(HAVE_TCP_CONGESTION)
+    int saved_errno;
+#endif /* HAVE_TCP_CONGESTION */
     struct iperf_stream *sp;
 
     int orig_bind_port = test->bind_port;
@@ -69,7 +72,9 @@ iperf_create_streams(struct iperf_test *test)
 	if (test->protocol->id == Ptcp) {
 	    if (test->congestion) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_CONGESTION, test->congestion, strlen(test->congestion)) < 0) {
+		    saved_errno = errno;
 		    close(s);
+		    errno = saved_errno;
 		    i_errno = IESETCONGESTION;
 		    return -1;
 		} 
@@ -78,7 +83,9 @@ iperf_create_streams(struct iperf_test *test)
 		socklen_t len = TCP_CA_NAME_MAX;
 		char ca[TCP_CA_NAME_MAX + 1];
 		if (getsockopt(s, IPPROTO_TCP, TCP_CONGESTION, ca, &len) < 0) {
+		    saved_errno = errno;
 		    close(s);
+		    errno = saved_errno;
 		    i_errno = IESETCONGESTION;
 		    return -1;
 		}
@@ -339,12 +346,22 @@ iperf_connect(struct iperf_test *test)
     socklen_t len;
 
     len = sizeof(opt);
-    if (getsockopt(test->ctrl_sck, IPPROTO_TCP, TCP_MAXSEG, &opt, &len) < 0) {
-	test->ctrl_sck_mss = 0;
-    }
-    else {
-	test->ctrl_sck_mss = opt;
-    }
+	if (getsockopt(test->ctrl_sck, IPPROTO_TCP, TCP_MAXSEG, &opt, &len) < 0) {
+		test->ctrl_sck_mss = 0;
+	}
+	else {
+		if (opt > 0 && opt <= MAX_UDP_BLOCKSIZE) {
+			test->ctrl_sck_mss = opt;
+		}
+		else {
+			char str[128];
+			snprintf(str, sizeof(str),
+				"Ignoring nonsense TCP MSS %d", opt);
+			warning(str);
+
+			test->ctrl_sck_mss = 0;
+		}
+	}
 
     if (test->verbose) {
 	printf("Control connection MSS %d\n", test->ctrl_sck_mss);
@@ -382,10 +399,11 @@ iperf_connect(struct iperf_test *test)
 	 * Regardless of whether explicitly or implicitly set, if the
 	 * block size is larger than the MSS, print a warning.
 	 */
-	if (test->settings->blksize > test->ctrl_sck_mss) {
+	if (test->ctrl_sck_mss > 0 &&
+	    test->settings->blksize > test->ctrl_sck_mss) {
 	    char str[128];
 	    snprintf(str, sizeof(str),
-		     "Warning:  UDP block size %d exceeds TCP MSS %d, may result in fragmentation / drops", test->settings->blksize, test->ctrl_sck_mss);
+		     "UDP block size %d exceeds TCP MSS %d, may result in fragmentation / drops", test->settings->blksize, test->ctrl_sck_mss);
 	    warning(str);
 	}
     }
@@ -407,12 +425,12 @@ iperf_client_end(struct iperf_test *test)
     /* show final summary */
     test->reporter_callback(test);
 
+    if (iperf_set_send_state(test, IPERF_DONE) != 0)
+        return -1;
+
     /* Close control socket */
     if (test->ctrl_sck)
         close(test->ctrl_sck);
-
-    if (iperf_set_send_state(test, IPERF_DONE) != 0)
-        return -1;
 
     return 0;
 }

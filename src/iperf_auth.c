@@ -1,5 +1,5 @@
 /*
- * iperf, Copyright (c) 2014-2017, The Regents of the University of
+ * iperf, Copyright (c) 2014-2018, The Regents of the University of
  * California, through Lawrence Berkeley National Laboratory (subject
  * to receipt of any required approvals from the U.S. Dept. of
  * Energy).  All rights reserved.
@@ -31,11 +31,14 @@
 #include <assert.h>
 #include <time.h>
 #include <sys/types.h>
+/* FreeBSD needs _WITH_GETLINE to enable the getline() declaration */
+#define _WITH_GETLINE
 #include <stdio.h>
 #include <termios.h>
 
 #if defined(HAVE_SSL)
 
+#include <openssl/rsa.h>
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/sha.h>
@@ -59,7 +62,7 @@ void sha256(const char *string, char outputBuffer[65])
 int check_authentication(const char *username, const char *password, const time_t ts, const char *filename){
     time_t t = time(NULL);
     time_t utc_seconds = mktime(localtime(&t));
-    if ( (utc_seconds - ts) < 10 && (utc_seconds - ts) > 0 ){
+    if ( (utc_seconds - ts) > 10 || (utc_seconds - ts) < -10 ) {
         return 1;
     }
 
@@ -95,6 +98,7 @@ int check_authentication(const char *username, const char *password, const time_
             return 0;
         }
     }
+    fclose(ptr_file);
     return 3;
 }
 
